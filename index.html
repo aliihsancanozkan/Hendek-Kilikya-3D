@@ -1,0 +1,1084 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Hendek | Kilikya 3D</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#08050a; overflow:hidden; font-family:Georgia,serif; color:#e8d8b0; touch-action:none; }
+canvas { display:block; width:100vw; height:100vh; }
+
+/* ══ AKIŞ EKRANLARI ══ */
+.flow-screen {
+  position:fixed; inset:0; z-index:40;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:0;
+  background:#08050a;
+}
+#title-screen { gap:28px; }
+#title-logo {
+  width:200px; height:200px; object-fit:cover; border-radius:12px;
+  border:2px solid rgba(240,200,64,.35); box-shadow:0 0 40px rgba(240,200,64,.12);
+}
+#title-screen h1 {
+  color:#f0c840; font-size:26px; letter-spacing:6px;
+  text-align:center; text-shadow:0 2px 18px rgba(240,200,64,.35);
+}
+#story-screen { gap:36px; padding:32px; }
+#story-text {
+  max-width:560px; text-align:center; color:#e8d8b0;
+  font-size:15px; line-height:1.9; letter-spacing:.5px;
+  border:1px solid rgba(240,200,64,.18); border-radius:10px;
+  padding:28px 32px; background:rgba(240,200,64,.04);
+}
+#story-text h2 {
+  color:#f0c840; font-size:13px; letter-spacing:5px;
+  text-transform:uppercase; margin-bottom:14px;
+}
+#controls-screen { gap:36px; padding:32px; }
+#controls-box {
+  max-width:500px; width:100%;
+  border:1px solid rgba(240,200,64,.18); border-radius:10px;
+  padding:28px 32px; background:rgba(240,200,64,.04);
+}
+#controls-box h2 {
+  color:#f0c840; font-size:13px; letter-spacing:5px;
+  text-transform:uppercase; text-align:center; margin-bottom:20px;
+}
+.ctrl-row {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:8px 0; border-bottom:1px solid rgba(255,255,255,.06); font-size:13px;
+}
+.ctrl-row:last-child { border-bottom:none; }
+.ctrl-key {
+  background:rgba(240,200,64,.12); border:1px solid rgba(240,200,64,.3);
+  border-radius:5px; padding:3px 10px; color:#f0c840;
+  font-size:11px; letter-spacing:2px; font-family:monospace;
+  min-width:60px; text-align:center; white-space:nowrap;
+}
+.ctrl-desc { color:rgba(220,200,150,.8); font-size:13px; }
+#loading-screen { gap:24px; }
+#loading-screen .big-spin {
+  width:60px; height:60px; border-radius:50%;
+  border:3px solid rgba(240,200,64,.7); border-top-color:transparent;
+  animation:sp .8s linear infinite;
+}
+#loading-screen p { color:rgba(240,200,64,.55); font-size:12px; letter-spacing:3px; }
+.flow-btn {
+  background:transparent; border:1px solid rgba(240,200,64,.5);
+  color:#f0c840; font-size:13px; font-family:Georgia,serif;
+  padding:12px 38px; border-radius:8px; cursor:pointer; letter-spacing:3px;
+  transition:background .2s, border-color .2s;
+}
+.flow-btn:hover, .flow-btn:active { background:rgba(240,200,64,.12); border-color:rgba(240,200,64,.8); }
+
+/* ══ DURAKLATMA ══ */
+#paused {
+  position:fixed; inset:0; background:rgba(0,0,0,.85);
+  display:none; align-items:center; justify-content:center;
+  z-index:60; flex-direction:column; gap:16px;
+}
+#paused h2 { color:#f0c840; font-size:17px; letter-spacing:6px; margin-bottom:6px; }
+.pause-btn {
+  background:transparent; border:1px solid rgba(240,200,64,.4);
+  color:#e8d8b0; font-size:13px; font-family:Georgia,serif;
+  padding:11px 36px; border-radius:7px; cursor:pointer; letter-spacing:2px;
+  transition:background .2s; min-width:200px; text-align:center;
+}
+.pause-btn:hover,.pause-btn:active { background:rgba(240,200,64,.1); }
+
+/* ══ HUD ETİKETİ ══ */
+#scene-label {
+  position:fixed; top:14px; left:50%; transform:translateX(-50%);
+  color:rgba(255,218,100,.75); font-size:12px; letter-spacing:3px;
+  text-transform:uppercase; pointer-events:none; z-index:10; display:none;
+  text-shadow:0 1px 4px #000;
+}
+
+/* ══ NPC İSİM ETİKETİ ══ */
+#npc-label {
+  position:fixed; transform:translate(-50%,-100%);
+  background:rgba(0,0,0,.82); border:1px solid rgba(0,0,0,.4);
+  color:#fff; font-size:11px; letter-spacing:1.5px;
+  padding:3px 10px; border-radius:5px; pointer-events:none; z-index:20;
+  white-space:nowrap; font-family:Georgia,serif; display:none;
+}
+
+/* ══ KONUŞMA UI ══ */
+#npc-prompt {
+  position:fixed; bottom:70px; left:50%; transform:translateX(-50%);
+  background:rgba(0,0,0,.78); border:1px solid rgba(240,200,64,.35);
+  border-radius:8px; padding:8px 22px;
+  color:#f0c840; font-size:12px; letter-spacing:3px;
+  display:none; z-index:29; pointer-events:none; white-space:nowrap;
+}
+#dialog-box {
+  position:fixed; bottom:70px; left:50%; transform:translateX(-50%);
+  width:min(600px,90vw);
+  background:rgba(8,4,12,.93); border:1px solid rgba(240,200,64,.35);
+  border-radius:10px; padding:18px 24px 16px;
+  display:none; z-index:30; pointer-events:none;
+  box-shadow:0 4px 32px rgba(0,0,0,.7);
+}
+#dialog-name { color:#f0c840; font-size:12px; letter-spacing:3px; text-transform:uppercase; margin-bottom:8px; }
+#dialog-text { color:#e8d8b0; font-size:15px; line-height:1.7; }
+#dialog-hint { color:rgba(200,180,100,.4); font-size:11px; letter-spacing:2px; margin-top:10px; text-align:right; }
+
+/* ══ PORTAL OVERLAY ══ */
+#portal-ov {
+  position:fixed; inset:0; background:#000;
+  display:none; align-items:center; justify-content:center;
+  z-index:50; pointer-events:none; flex-direction:column; gap:22px;
+}
+#portal-ov .big-spin {
+  width:60px; height:60px; border-radius:50%;
+  border:3px solid rgba(240,200,64,.7); border-top-color:transparent;
+  animation:sp .8s linear infinite;
+}
+#portal-ov p { color:rgba(240,200,64,.5); font-size:12px; letter-spacing:3px; }
+
+@keyframes sp { to { transform:rotate(360deg); } }
+
+/* ══ MOBİL KONTROLLER ══ */
+#mobile-controls { display:none; }
+
+/* Joystick */
+#joystick-zone {
+  position:fixed; bottom:24px; left:24px;
+  width:120px; height:120px; z-index:25; touch-action:none;
+}
+#joystick-base {
+  position:absolute; inset:0; border-radius:50%;
+  background:rgba(255,255,255,.08); border:2px solid rgba(255,255,255,.18);
+}
+#joystick-knob {
+  position:absolute; width:48px; height:48px;
+  border-radius:50%; background:rgba(240,200,64,.55);
+  border:2px solid rgba(240,200,64,.8);
+  top:50%; left:50%; transform:translate(-50%,-50%);
+  transition:none;
+}
+
+/* Sağ alt: Konuş butonu */
+#btn-talk-mobile {
+  position:fixed; bottom:24px; right:24px;
+  width:68px; height:68px; border-radius:50%;
+  background:rgba(240,200,64,.22); border:2px solid rgba(240,200,64,.6);
+  display:none; align-items:center; justify-content:center;
+  z-index:25; touch-action:manipulation;
+  /* Konuşma simgesi SVG ile */
+}
+#btn-talk-mobile svg { width:28px; height:28px; fill:rgba(240,200,64,.9); }
+
+/* Sağ üst: Doğma Noktası butonu */
+#btn-respawn-mobile {
+  position:fixed; top:14px; right:14px;
+  background:rgba(0,0,0,.6); border:1px solid rgba(240,200,64,.4);
+  border-radius:8px; padding:8px 14px;
+  color:#f0c840; font-size:11px; letter-spacing:2px;
+  z-index:25; touch-action:manipulation; cursor:pointer;
+  font-family:Georgia,serif; display:none;
+}
+
+/* ══ VR ══ */
+#vr-btn {
+  position:fixed; bottom:14px; right:14px;
+  background:rgba(0,0,0,.6); border:1px solid rgba(240,200,64,.4);
+  border-radius:8px; padding:9px 18px;
+  color:#f0c840; font-size:12px; letter-spacing:2px;
+  z-index:25; cursor:pointer; font-family:Georgia,serif; display:none;
+}
+#vr-hint {
+  position:fixed; bottom:14px; left:50%; transform:translateX(-50%);
+  color:rgba(240,200,64,.45); font-size:11px; letter-spacing:2px;
+  pointer-events:none; z-index:10; display:none;
+}
+/* VR için crosshair */
+#xr-crosshair {
+  position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+  width:10px; height:10px; border-radius:50%;
+  background:rgba(255,255,255,.6); pointer-events:none;
+  z-index:8; display:none;
+}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<!-- ══ AKIŞ EKRANLARI ══ -->
+<div class="flow-screen" id="title-screen">
+  <img id="title-logo" src="logo.jpeg" alt="Logo" onerror="this.style.display='none'">
+  <h1>HENDEK | KİLİKYA 3D</h1>
+  <button class="flow-btn" id="btn-to-story">Başla</button>
+</div>
+
+<div class="flow-screen" id="story-screen" style="display:none">
+  <div id="story-text">
+    <h2>Hikâye</h2>
+    M.Ö. 75 yılında, Kilikya'da, tarihi bir kuşatma oluyordu. Kılıçlarla savaşın kazanılamayacağını anlayan Romalılar, başka bir yönteme başvurdu. Hendekler kazarak, korsan Zenicetes'in kalesi kuşatılacaktı.
+  </div>
+  <button class="flow-btn" id="btn-to-controls">Devam Et</button>
+</div>
+
+<div class="flow-screen" id="controls-screen" style="display:none">
+  <div id="controls-box">
+    <h2>Kontroller</h2>
+    <!-- İçerik JS ile platforma göre doldurulur -->
+  </div>
+  <button class="flow-btn" id="btn-to-loading">Keşfe Başla</button>
+</div>
+
+<div class="flow-screen" id="loading-screen" style="display:none">
+  <div class="big-spin"></div>
+  <p>YÜKLENİYOR…</p>
+</div>
+
+<!-- ══ DURAKLATMA ══ -->
+<div id="paused" style="display:none">
+  <h2>OYUN DURDU</h2>
+  <button class="pause-btn" id="btn-resume">Oyuna Devam Et</button>
+  <button class="pause-btn" id="btn-quit">Oyunu Kapat</button>
+</div>
+
+<div id="scene-label">Ana Harita — Kilikya</div>
+<div id="portal-ov"><div class="big-spin"></div><p>YÜKLENİYOR…</p></div>
+<div id="npc-label"></div>
+<div id="npc-prompt">[ SPACE ] Konuş</div>
+<div id="dialog-box">
+  <div id="dialog-name"></div>
+  <div id="dialog-text"></div>
+  <div id="dialog-hint">[ SPACE ] Kapat</div>
+</div>
+
+<!-- MOBİL -->
+<div id="mobile-controls">
+  <div id="joystick-zone"><div id="joystick-base"></div><div id="joystick-knob"></div></div>
+  <button id="btn-talk-mobile">
+    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 2C6.48 2 2 6.03 2 11c0 2.68 1.22 5.08 3.17 6.75L4 22l4.55-1.52A10.9 10.9 0 0 0 12 21c5.52 0 10-4.03 10-9S17.52 2 12 2z"/>
+    </svg>
+  </button>
+  <button id="btn-respawn-mobile">Doğma Noktası</button>
+</div>
+
+<!-- VR -->
+<button id="vr-btn">VR Modu</button>
+<div id="vr-hint">A · Konuş &nbsp;|&nbsp; B · Menü &nbsp;|&nbsp; B (uzun) · Yeniden Başla</div>
+<div id="xr-crosshair"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+
+// ══════════════════════════════════════════════════
+//  PLATFORM ALGILAMA
+// ══════════════════════════════════════════════════
+const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
+                 (navigator.maxTouchPoints > 1 && !/Win/i.test(navigator.platform));
+const hasXR    = !!navigator.xr;
+// Platform: 'desktop' | 'mobile' | 'vr'  (VR başlatılınca 'vr' olur)
+let platform = isMobile ? 'mobile' : 'desktop';
+
+// ══════════════════════════════════════════════════
+//  KONTROL METİNLERİ (platforma göre)
+// ══════════════════════════════════════════════════
+const CTRL_ROWS = {
+  desktop: [
+    ['İleri / Geri / Sola / Sağa Yürü',  'W A S D / ↑ ↓ ← →'],
+    ['Etrafa Bak',                          'FARE'],
+    ['NPC ile Konuş / Kapat',               'SPACE'],
+    ['Oyunu Duraklat',                       'ESC'],
+    ['Doğma noktasına ışınlan',              'R'],
+  ],
+  mobile: [
+    ['Yürü',            'Sol Joystick'],
+    ['Etrafa Bak',      'Sürükle'],
+    ['NPC ile Konuş',   'Sağ Alt Buton'],
+    ['Doğma Noktası',   'Sağ Üst Buton'],
+  ],
+  vr: [
+    ['Yürü',                        'Sol Joystick'],
+    ['Etrafa Bak',                   'Kafa Hareketi'],
+    ['2D Butona Bas',                'Sağ Trigger'],
+    ['NPC ile Konuş / Bitir',        'A Tuşu'],
+    ['Menü Aç',                      'B Tuşu'],
+    ['Doğma Noktasına Dön',          'B (2–3 sn Basılı)'],
+  ],
+};
+
+function buildControlsUI(pl) {
+  const box = document.getElementById('controls-box');
+  const rows = CTRL_ROWS[pl];
+  box.innerHTML = '<h2>Kontroller</h2>' +
+    rows.map(([desc, key]) =>
+      `<div class="ctrl-row"><span class="ctrl-desc">${desc}</span><span class="ctrl-key">${key}</span></div>`
+    ).join('');
+}
+
+// Dialog hint platforma göre
+function getDialogHint() {
+  if (platform === 'mobile') return 'Sağ Alt Butona Bas · Kapat';
+  if (platform === 'vr')     return 'A Tuşu · Kapat';
+  return '[ SPACE ] Kapat';
+}
+function getNPCPromptText() {
+  if (platform === 'mobile') return '● Konuş';
+  if (platform === 'vr')     return '[ A ] Konuş';
+  return '[ SPACE ] Konuş';
+}
+
+// ══════════════════════════════════════════════════
+//  AKIŞ BUTONU EVENTLERİ
+// ══════════════════════════════════════════════════
+document.getElementById('btn-to-story').addEventListener('click', () => {
+  document.getElementById('title-screen').style.display  = 'none';
+  document.getElementById('story-screen').style.display  = 'flex';
+});
+document.getElementById('btn-to-controls').addEventListener('click', () => {
+  buildControlsUI(platform);
+  document.getElementById('story-screen').style.display    = 'none';
+  document.getElementById('controls-screen').style.display = 'flex';
+});
+document.getElementById('btn-to-loading').addEventListener('click', () => {
+  document.getElementById('controls-screen').style.display = 'none';
+  document.getElementById('loading-screen').style.display  = 'flex';
+  startLoading();
+});
+document.getElementById('btn-quit').addEventListener('click', () => {
+  document.getElementById('paused').style.display = 'none';
+  if (document.pointerLockElement) document.exitPointerLock();
+  document.getElementById('scene-label').style.display = 'none';
+  hideMobileControls(); hideVRBtn();
+  document.getElementById('title-screen').style.display = 'flex';
+});
+document.getElementById('btn-resume').addEventListener('click', () => {
+  document.getElementById('paused').style.display = 'none';
+  if (platform === 'desktop') reqLock();
+  else if (platform === 'mobile') showMobileControls();
+});
+
+// ══════════════════════════════════════════════════
+//  AYARLAR
+// ══════════════════════════════════════════════════
+const PLAYER_EYE   = 2.5;
+const PLAYER_SPEED = 25;
+const WALL_DIST    = 0.4;
+const WALL_NRM     = 0.5;
+
+// ══════════════════════════════════════════════════
+//  MANIFEST
+// ══════════════════════════════════════════════════
+const MANIFEST = [
+  { key:'mapMain',   file:'main.glb',          required:true  },
+  { key:'mapLiman',  file:'liman.glb',          required:true  },
+  { key:'dusman',    file:'dusman_isci.glb',    required:false },
+  { key:'gazeteci',  file:'gazeteci_cocuk.glb', required:false },
+  { key:'kaptan',    file:'gemi_kaptani.glb',   required:false },
+  { key:'zenicetes', file:'zenicetes.glb',      required:false },
+];
+
+// ══════════════════════════════════════════════════
+//  PORTALLAR
+// ══════════════════════════════════════════════════
+const PORTALS = [
+  { scene:'main',  x:32.1,  z:-47.2, radius:6,
+    toScene:'liman', toX:-29.2, toZ:-12.4, toYaw:-0.72, label:'Liman — Kilikya' },
+  { scene:'liman', x:-15.3, z:27.5,  radius:3,
+    toScene:'main',  toX:32.2,  toZ:-6.7,  toYaw:Math.PI, label:'Ana Harita — Kilikya' },
+];
+
+// ══════════════════════════════════════════════════
+//  NPC'LER
+// ══════════════════════════════════════════════════
+const NPCS = [
+  { scene:'main',  key:'dusman',   x:51.9,  y:25.9, z:18.9,  yawDeg:335,
+    name:'Düşman İşçi',
+    dialog:'Ben, korsan liderimiz Zenicetes\'in işçisiyim. Kaleyi kuşatmak için kazdığınız hendekleri doldurmakla görevliyim.' },
+  { scene:'main',  key:'gazeteci', x:52.7,  y:25.9, z:-24.5, yawDeg:202,
+    name:'Gazeteci',
+    dialog:'Ben gazeteciyim. Erzak gemisi geldiğinde sana haber getiririm.' },
+  { scene:'main',  key:'zenicetes',x:33.0,  y:25.9, z:18.8,  yawDeg:1,
+    name:'Zenicetes',
+    dialog:'Ben düşmanın Zenicetes. Kalemi asla kuşatamayacaksın! HAHAHAHA...' },
+  { scene:'liman', key:'kaptan',   x:2.0,   y:44.4, z:-41.9, yawDeg:260,
+    name:'Gemi Kaptanı',
+    dialog:'Ben erzak gemisinin kaptanıyım. Geminin kontrolü bende, sana erzakları ben getiririm.' },
+  { scene:'liman', key:'gazeteci', x:-35.2, y:44.4, z:-29.9, yawDeg:147,
+    name:'Gazeteci',
+    dialog:'Demek haberimi aldın ve erzak gemisi için limana geldin...' },
+];
+
+const npcWorldPositions = [];
+
+// ══════════════════════════════════════════════════
+//  GLB PARSER
+// ══════════════════════════════════════════════════
+function parseGLB(buf) {
+  const dv = new DataView(buf);
+  if (dv.getUint32(0,true) !== 0x46546C67) throw new Error('Geçersiz GLB');
+  const jLen = dv.getUint32(12,true);
+  const json = JSON.parse(new TextDecoder().decode(new Uint8Array(buf,20,jLen)));
+  const bin  = buf.slice(28+jLen);
+  const accs=json.accessors||[], bvs=json.bufferViews||[];
+  const mats=json.materials||[], texs=json.textures||[], imgs=json.images||[];
+  const SZ={SCALAR:1,VEC2:2,VEC3:3,VEC4:4,MAT4:16};
+  function read(i){
+    const a=accs[i],bv=bvs[a.bufferView];
+    const off=(bv.byteOffset||0)+(a.byteOffset||0);
+    const n=a.count*(SZ[a.type]||1);
+    switch(a.componentType){
+      case 5126:return new Float32Array(bin.slice(off,off+n*4));
+      case 5125:return new Uint32Array(bin.slice(off,off+n*4));
+      case 5123:return new Uint16Array(bin.slice(off,off+n*2));
+      default:  return new Uint8Array(bin.slice(off,off+n));
+    }
+  }
+  const texCache={};
+  function getTexture(ti){
+    if(texCache[ti])return texCache[ti];
+    const imgIdx=texs[ti]?.source; if(imgIdx==null)return null;
+    const img=imgs[imgIdx]; let blob;
+    if(img.uri){blob=img.uri;}
+    else if(img.bufferView!=null){
+      const bv=bvs[img.bufferView];
+      const bytes=new Uint8Array(bin,bv.byteOffset||0,bv.byteLength);
+      blob=URL.createObjectURL(new Blob([bytes],{type:img.mimeType||'image/png'}));
+    } else return null;
+    const tex=new THREE.TextureLoader().load(blob);
+    tex.flipY=false; tex.encoding=THREE.sRGBEncoding;
+    texCache[ti]=tex; return tex;
+  }
+  function getMatParams(idx){
+    if(idx==null)return{};
+    const mat=mats[idx]; if(!mat)return{};
+    const pbr=mat.pbrMetallicRoughness||{};
+    const p={side:THREE.FrontSide};
+    if(pbr.baseColorFactor){const[r,g,b]=pbr.baseColorFactor;p.color=new THREE.Color(r,g,b);}
+    if(pbr.baseColorTexture!=null){const t=getTexture(pbr.baseColorTexture.index);if(t)p.map=t;}
+    return p;
+  }
+  const group=new THREE.Group();
+  for(const mesh of(json.meshes||[])){
+    for(const prim of(mesh.primitives||[])){
+      const at=prim.attributes;
+      let geo=new THREE.BufferGeometry();
+      if(at.POSITION!=null)geo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(read(at.POSITION)),3));
+      if(at.NORMAL!=null)geo.setAttribute('normal',new THREE.BufferAttribute(new Float32Array(read(at.NORMAL)),3));
+      if(at.COLOR_0!=null)geo.setAttribute('color',new THREE.BufferAttribute(new Float32Array(read(at.COLOR_0)),3));
+      if(at.TEXCOORD_0!=null)geo.setAttribute('uv',new THREE.BufferAttribute(new Float32Array(read(at.TEXCOORD_0)),2));
+      if(prim.indices!=null)geo.setIndex(new THREE.BufferAttribute(new Uint32Array(read(prim.indices)),1));
+      geo=geo.toNonIndexed();
+      if(geo.attributes.color){
+        const c=geo.attributes.color.array;
+        for(let i=0;i<c.length;i+=9){
+          const r0=c[i],g0=c[i+1],b0=c[i+2],r1=c[i+3],g1=c[i+4],b1=c[i+5],r2=c[i+6],g2=c[i+7],b2=c[i+8];
+          const d01=(r0-r1)**2+(g0-g1)**2+(b0-b1)**2;
+          const d02=(r0-r2)**2+(g0-g2)**2+(b0-b2)**2;
+          const d12=(r1-r2)**2+(g1-g2)**2+(b1-b2)**2;
+          let fr,fg,fb;
+          if(d01<=d02&&d01<=d12){fr=(r0+r1)/2;fg=(g0+g1)/2;fb=(b0+b1)/2;}
+          else if(d02<=d12){fr=(r0+r2)/2;fg=(g0+g2)/2;fb=(b0+b2)/2;}
+          else{fr=(r1+r2)/2;fg=(g1+g2)/2;fb=(b1+b2)/2;}
+          c[i]=c[i+3]=c[i+6]=fr;c[i+1]=c[i+4]=c[i+7]=fg;c[i+2]=c[i+5]=c[i+8]=fb;
+        }
+      }
+      geo.computeVertexNormals();
+      const hasColor=!!geo.attributes.color;
+      const iW=(r,g,b)=>r<0.6&&(g+b)>1.4;
+      const iS=(r,g,b)=>b<0.35&&r>0.5&&r<g*1.5+0.3;
+      const mp=getMatParams(prim.material);
+      let wr=0;
+      if(hasColor){const c=geo.attributes.color.array;let wc=0;for(let i=0;i<c.length;i+=9)if(iW(c[i],c[i+1],c[i+2]))wc++;wr=wc/(c.length/9);}
+      if(hasColor&&wr>0.1){
+        const posArr=geo.attributes.position.array,colArr=geo.attributes.color.array;
+        for(let i=0;i<colArr.length;i++)colArr[i]=Math.min(1,colArr[i]*1.4);
+        const pri=(r,g,b)=>iS(r,g,b)?0:iW(r,g,b)?1:2;
+        const BASE={0:10,1:5,2:2};
+        const clusters=[];
+        for(let t=0;t<posArr.length/9;t++){
+          const i9=t*9,r=colArr[i9],g=colArr[i9+1],b=colArr[i9+2];
+          let cl=clusters.find(c=>(c.r-r)**2+(c.g-g)**2+(c.b-b)**2<0.0064);
+          if(!cl){cl={r,g,b,pos:[],col:[],n:0};clusters.push(cl);}
+          for(let j=0;j<9;j++){cl.pos.push(posArr[i9+j]);cl.col.push(colArr[i9+j]);}cl.n++;
+        }
+        clusters.sort((a,b)=>{const d=pri(a.r,a.g,a.b)-pri(b.r,b.g,b.b);return d!==0?d:(b.n-a.n);});
+        clusters.forEach((cl,idx)=>{
+          const g2=new THREE.BufferGeometry();
+          const isBrown=cl.r>cl.g*1.5&&cl.g>cl.b*2&&cl.r<0.55;
+          const boost=isBrown?1.4:1;
+          const bc=boost===1?new Float32Array(cl.col):new Float32Array(cl.col.map(v=>Math.min(v*boost,1)));
+          g2.setAttribute('position',new THREE.BufferAttribute(new Float32Array(cl.pos),3));
+          g2.setAttribute('color',new THREE.BufferAttribute(bc,3));
+          g2.computeVertexNormals();
+          const f=BASE[pri(cl.r,cl.g,cl.b)];
+          const m=new THREE.Mesh(g2,new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.FrontSide,depthWrite:true,polygonOffset:true,polygonOffsetFactor:f,polygonOffsetUnits:f}));
+          m.renderOrder=idx; group.add(m);
+        });
+      } else if(hasColor){
+        group.add(new THREE.Mesh(geo,new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.FrontSide,polygonOffset:true,polygonOffsetFactor:2,polygonOffsetUnits:2})));
+      } else if(mp.map){
+        group.add(new THREE.Mesh(geo,new THREE.MeshLambertMaterial({map:mp.map,side:THREE.FrontSide,polygonOffset:true,polygonOffsetFactor:2,polygonOffsetUnits:2})));
+      } else {
+        group.add(new THREE.Mesh(geo,new THREE.MeshLambertMaterial({color:mp.color||new THREE.Color(.8,.8,.8),side:THREE.FrontSide,polygonOffset:true,polygonOffsetFactor:2,polygonOffsetUnits:2})));
+      }
+    }
+  }
+  return group;
+}
+
+// ══════════════════════════════════════════════════
+//  YÜKLEME
+// ══════════════════════════════════════════════════
+function startLoading(){
+  const isLocal=location.protocol==='file:';
+  if(isLocal){
+    const fi=document.createElement('input');
+    fi.type='file';fi.accept='.glb';fi.multiple=true;fi.style.display='none';
+    document.body.appendChild(fi);
+    document.addEventListener('dragover',e=>e.preventDefault());
+    document.addEventListener('drop',e=>{e.preventDefault();processFiles(Array.from(e.dataTransfer.files));});
+    fi.addEventListener('change',e=>processFiles(Array.from(e.target.files)));
+    fi.click();
+    function processFiles(files){
+      const matched={};
+      for(const m of MANIFEST){const f=files.find(f=>f.name===m.file);if(f)matched[m.key]=f;}
+      const missing=MANIFEST.filter(m=>m.required&&!matched[m.key]);
+      if(missing.length){alert('Eksik: '+missing.map(m=>m.file).join(', '));return;}
+      const loaded={};let rem=Object.values(matched).filter(Boolean).length;
+      if(!rem){startGame(loaded);return;}
+      for(const[key,file]of Object.entries(matched)){
+        if(!file)continue;
+        const r=new FileReader();
+        r.onload=e=>{try{loaded[key]=parseGLB(e.target.result);}catch(e){console.error(key,e);}if(--rem===0)startGame(loaded);};
+        r.readAsArrayBuffer(file);
+      }
+    }
+  } else {
+    const loaded={};let rem=MANIFEST.length;
+    for(const m of MANIFEST){
+      fetch(m.file).then(r=>{if(!r.ok)throw 0;return r.arrayBuffer();})
+        .then(buf=>{loaded[m.key]=parseGLB(buf);})
+        .catch(()=>{})
+        .finally(()=>{if(--rem===0)startGame(loaded);});
+    }
+  }
+}
+
+// ══════════════════════════════════════════════════
+//  RENDERER & SAHNELER
+// ══════════════════════════════════════════════════
+const renderer=new THREE.WebGLRenderer({canvas:document.getElementById('c'),antialias:true,logarithmicDepthBuffer:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.outputEncoding=THREE.sRGBEncoding;
+renderer.xr={enabled:false}; // başlangıçta kapalı
+
+function makeScene(bg,fn,ff){
+  const sc=new THREE.Scene();
+  sc.background=new THREE.Color(bg);sc.fog=new THREE.Fog(bg,fn,ff);
+  sc.add(new THREE.AmbientLight(0xffffff,.7));
+  const sun=new THREE.DirectionalLight(0xfff5e0,.8);sun.position.set(300,500,200);sc.add(sun);
+  return sc;
+}
+const SCENE_DEFS={
+  main: {three:makeScene(0x87ceeb,700,2200),objects:[],lastGround:0,initialized:false},
+  liman:{three:makeScene(0x6ab8d8,800,2500),objects:[],lastGround:0,initialized:false},
+};
+const camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,.5,3000);
+window.addEventListener('resize',()=>{
+  camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+
+let curKey='main', mapObjects=SCENE_DEFS.main.objects, lastGround=0, initialized=false;
+
+// ══════════════════════════════════════════════════
+//  ZEMİN
+// ══════════════════════════════════════════════════
+const raycaster=new THREE.Raycaster();
+const DOWN=new THREE.Vector3(0,-1,0);
+let lastHitColor=null;
+
+function groundAt(x,z){
+  raycaster.set(new THREE.Vector3(x,2000,z),DOWN);
+  const hits=raycaster.intersectObjects(mapObjects,true);
+  if(!hits.length){lastHitColor=null;return null;}
+  const nm=new THREE.Matrix3();
+  for(const hit of hits){
+    nm.getNormalMatrix(hit.object.matrixWorld);
+    const ny=hit.face.normal.clone().applyMatrix3(nm).normalize().y;
+    if(ny<0.3)continue;
+    if(initialized&&hit.point.y>lastGround+2)continue;
+    const col=hit.object.geometry.attributes.color;
+    lastHitColor=col?[col.array[hit.face.a*3],col.array[hit.face.a*3+1],col.array[hit.face.a*3+2]]:null;
+    return hit.point.y;
+  }
+  lastHitColor=null;return null;
+}
+const isWater=c=>c&&c[0]<0.6&&(c[1]+c[2])>1.4;
+const isShallows=c=>c&&c[2]>0.55&&(c[1]+c[2])>1.1&&c[0]<0.7;
+const isPortalColor=c=>c&&c[0]>0.55&&c[1]<0.35&&c[2]<0.25;
+
+// ══════════════════════════════════════════════════
+//  OYUNCU DURUMU
+// ══════════════════════════════════════════════════
+const P={x:32.2,z:-6.7,y:0,yaw:Math.PI,pitch:0};
+const KEYS={};
+let dialogOpen=false, nearbyNPC=null, locked=false;
+
+function openDialog(npc){
+  dialogOpen=true;
+  document.getElementById('dialog-name').textContent=npc.name;
+  document.getElementById('dialog-text').textContent=npc.dialog;
+  document.getElementById('dialog-hint').textContent=getDialogHint();
+  document.getElementById('dialog-box').style.display='block';
+  document.getElementById('npc-prompt').style.display='none';
+  if(platform==='mobile') document.getElementById('btn-talk-mobile').style.background='rgba(240,200,64,.45)';
+}
+function closeDialog(){
+  dialogOpen=false;
+  document.getElementById('dialog-box').style.display='none';
+  if(platform==='mobile') document.getElementById('btn-talk-mobile').style.background='rgba(240,200,64,.22)';
+  if(nearbyNPC) document.getElementById('npc-prompt').style.display='block';
+}
+function trySpeak(){
+  if(dialogOpen) closeDialog();
+  else if(nearbyNPC) openDialog(nearbyNPC);
+}
+
+// ══════════════════════════════════════════════════
+//  KLAVYE (Desktop)
+// ══════════════════════════════════════════════════
+document.addEventListener('keydown',e=>{
+  KEYS[e.code]=true;
+  if(e.code==='KeyR'&&!transitioning)
+    doPortal({toScene:'main',toX:32.2,toZ:-6.7,toYaw:Math.PI,label:'Ana Harita — Kilikya'});
+  if(e.code==='Space'&&locked){e.preventDefault();trySpeak();}
+});
+document.addEventListener('keyup',e=>KEYS[e.code]=false);
+
+// ══════════════════════════════════════════════════
+//  FARE (Desktop)
+// ══════════════════════════════════════════════════
+document.addEventListener('mousemove',e=>{
+  if(!locked||platform!=='desktop')return;
+  P.yaw-=e.movementX*.002;
+  P.pitch=Math.max(-1.2,Math.min(1.2,P.pitch-e.movementY*.002));
+});
+function reqLock(){document.getElementById('c').requestPointerLock();}
+document.getElementById('c').addEventListener('click',()=>{
+  if(platform==='desktop'&&isGameActive()) reqLock();
+});
+function isGameActive(){
+  return document.getElementById('loading-screen').style.display==='none'&&
+         document.getElementById('title-screen').style.display==='none'&&
+         document.getElementById('story-screen').style.display==='none'&&
+         document.getElementById('controls-screen').style.display==='none';
+}
+document.addEventListener('pointerlockchange',()=>{
+  locked=!!document.pointerLockElement;
+  if(isGameActive()&&platform==='desktop'){
+    document.getElementById('paused').style.display=locked?'none':'flex';
+    document.getElementById('scene-label').style.display=locked?'block':'none';
+  }
+});
+
+// ══════════════════════════════════════════════════
+//  MOBİL JOYSTICK
+// ══════════════════════════════════════════════════
+const joystickZone=document.getElementById('joystick-zone');
+const joystickKnob=document.getElementById('joystick-knob');
+const joyState={active:false,id:-1,sx:0,sy:0,dx:0,dy:0};
+const JOY_R=48; // max knob kayma px
+
+joystickZone.addEventListener('touchstart',e=>{
+  e.preventDefault();
+  const t=e.changedTouches[0];
+  const r=joystickZone.getBoundingClientRect();
+  joyState.active=true; joyState.id=t.identifier;
+  joyState.sx=t.clientX-r.left; joyState.sy=t.clientY-r.top;
+  joyState.dx=0; joyState.dy=0;
+},{passive:false});
+
+joystickZone.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  for(const t of e.changedTouches){
+    if(t.identifier!==joyState.id)continue;
+    const r=joystickZone.getBoundingClientRect();
+    let dx=t.clientX-r.left-joyState.sx;
+    let dy=t.clientY-r.top-joyState.sy;
+    const len=Math.sqrt(dx*dx+dy*dy);
+    if(len>JOY_R){dx=dx/len*JOY_R;dy=dy/len*JOY_R;}
+    joyState.dx=dx; joyState.dy=dy;
+    joystickKnob.style.transform=`translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+  }
+},{passive:false});
+
+function resetJoystick(){
+  joyState.active=false; joyState.id=-1; joyState.dx=0; joyState.dy=0;
+  joystickKnob.style.transform='translate(-50%,-50%)';
+}
+joystickZone.addEventListener('touchend',e=>{
+  for(const t of e.changedTouches)if(t.identifier===joyState.id)resetJoystick();
+},{passive:false});
+joystickZone.addEventListener('touchcancel',resetJoystick,{passive:false});
+
+// ══════════════════════════════════════════════════
+//  MOBİL BAKIŞ (sürükle)
+// ══════════════════════════════════════════════════
+let lookTouch={id:-1,lx:0,ly:0};
+const canvasEl=document.getElementById('c');
+canvasEl.addEventListener('touchstart',e=>{
+  if(platform!=='mobile')return;
+  for(const t of e.changedTouches){
+    // joystick zone'a isabet etmesin
+    const r=joystickZone.getBoundingClientRect();
+    if(t.clientX>=r.left&&t.clientX<=r.right&&t.clientY>=r.top&&t.clientY<=r.bottom)continue;
+    if(lookTouch.id===-1){
+      lookTouch.id=t.identifier; lookTouch.lx=t.clientX; lookTouch.ly=t.clientY;
+    }
+  }
+},{passive:true});
+canvasEl.addEventListener('touchmove',e=>{
+  if(platform!=='mobile')return;
+  for(const t of e.changedTouches){
+    if(t.identifier!==lookTouch.id)continue;
+    const dx=t.clientX-lookTouch.lx; const dy=t.clientY-lookTouch.ly;
+    P.yaw-=dx*0.004;
+    P.pitch=Math.max(-1.2,Math.min(1.2,P.pitch-dy*0.004));
+    lookTouch.lx=t.clientX; lookTouch.ly=t.clientY;
+  }
+},{passive:true});
+canvasEl.addEventListener('touchend',e=>{
+  for(const t of e.changedTouches)if(t.identifier===lookTouch.id)lookTouch.id=-1;
+},{passive:true});
+
+// ══════════════════════════════════════════════════
+//  MOBİL BUTONLAR
+// ══════════════════════════════════════════════════
+document.getElementById('btn-talk-mobile').addEventListener('touchstart',e=>{
+  e.preventDefault(); if(nearbyNPC||dialogOpen) trySpeak();
+},{passive:false});
+document.getElementById('btn-respawn-mobile').addEventListener('touchstart',e=>{
+  e.preventDefault();
+  if(!transitioning) doPortal({toScene:'main',toX:32.2,toZ:-6.7,toYaw:Math.PI,label:'Ana Harita — Kilikya'});
+},{passive:false});
+
+function showMobileControls(){
+  document.getElementById('btn-respawn-mobile').style.display='block';
+  // Konuş butonu yalnızca yakın NPC varsa → checkNPCProximity halleder
+}
+function hideMobileControls(){
+  document.getElementById('btn-respawn-mobile').style.display='none';
+  document.getElementById('btn-talk-mobile').style.display='none';
+}
+
+// ══════════════════════════════════════════════════
+//  VR (WebXR)
+// ══════════════════════════════════════════════════
+let xrSession=null, xrRefSpace=null;
+let vrBHoldTimer=null;
+
+async function startVR(){
+  if(!navigator.xr)return;
+  try{
+    const supported=await navigator.xr.isSessionSupported('immersive-vr');
+    if(!supported){alert('VR desteklenmiyor.');return;}
+    xrSession=await navigator.xr.requestSession('immersive-vr',{
+      requiredFeatures:['local-floor'],
+      optionalFeatures:['hand-tracking'],
+    });
+    renderer.xr.enabled=true;
+    renderer.xr.setSession(xrSession);
+    xrRefSpace=await xrSession.requestReferenceSpace('local-floor');
+    platform='vr';
+    document.getElementById('vr-btn').style.display='none';
+    document.getElementById('vr-hint').style.display='block';
+    document.getElementById('xr-crosshair').style.display='block';
+    document.getElementById('scene-label').style.display='block';
+    xrSession.addEventListener('end',()=>{
+      renderer.xr.enabled=false; platform='desktop'; xrSession=null;
+      document.getElementById('vr-btn').style.display='block';
+      document.getElementById('vr-hint').style.display='none';
+      document.getElementById('xr-crosshair').style.display='none';
+    });
+    // VR render loop
+    renderer.setAnimationLoop(xrLoop);
+  } catch(err){console.error('VR başlatılamadı:',err);}
+}
+
+function xrLoop(t, frame){
+  if(!frame)return;
+  const dt=Math.min(clock.getDelta(),.05);
+
+  // Gamepad input
+  const session=renderer.xr.getSession();
+  if(session){
+    for(const src of session.inputSources){
+      if(!src.gamepad)continue;
+      const gp=src.gamepad;
+
+      if(src.handedness==='left'){
+        // Sol joystick → yürüme
+        const ax=gp.axes[2]||0, ay=gp.axes[3]||0;
+        if(Math.abs(ax)>.15||Math.abs(ay)>.15){
+          joyState.dx=ax*JOY_R; joyState.dy=ay*JOY_R; joyState.active=true;
+        } else { joyState.active=false; joyState.dx=0; joyState.dy=0; }
+      }
+
+      if(src.handedness==='right'){
+        // A butonu (index 4) → konuş
+        if(gp.buttons[4]?.pressed&&!gp.buttons[4]?._wasPressed){
+          trySpeak();
+        }
+        if(gp.buttons[4]) gp.buttons[4]._wasPressed=gp.buttons[4].pressed;
+
+        // B butonu (index 5) → menü / uzun basış = restart
+        const bBtn=gp.buttons[5];
+        if(bBtn?.pressed&&!bBtn?._wasPressed){
+          vrBHoldTimer=setTimeout(()=>{
+            doPortal({toScene:'main',toX:32.2,toZ:-6.7,toYaw:Math.PI,label:'Ana Harita — Kilikya'});
+          },2500);
+        }
+        if(bBtn&&!bBtn.pressed&&bBtn?._wasPressed){
+          if(vrBHoldTimer){clearTimeout(vrBHoldTimer);vrBHoldTimer=null;}
+          // Kısa basış: menü aç/kapat
+          const p=document.getElementById('paused');
+          p.style.display=p.style.display==='flex'?'none':'flex';
+        }
+        if(bBtn) bBtn._wasPressed=bBtn.pressed;
+      }
+    }
+
+    // VR'da kafa yönünden yaw al
+    const pose=frame.getViewerPose(xrRefSpace);
+    if(pose){
+      const q=pose.transform.orientation;
+      // Quaternion'dan yaw çıkar
+      P.yaw=Math.atan2(2*(q.w*q.y+q.x*q.z),1-2*(q.y*q.y+q.z*q.z));
+    }
+  }
+
+  if(!transitioning) updateMovement(dt);
+  checkPortals();
+  checkNPCProximity_global();
+  camera.position.set(P.x,P.y,P.z);
+  camera.rotation.order='YXZ';
+  camera.rotation.y=P.yaw;
+  camera.rotation.x=P.pitch;
+  renderer.render(SCENE_DEFS[curKey].three,camera);
+  updateNPCLabel();
+}
+
+document.getElementById('vr-btn').addEventListener('click',startVR);
+
+// ══════════════════════════════════════════════════
+//  HAREKET
+// ══════════════════════════════════════════════════
+const Y_AXIS=new THREE.Vector3(0,1,0);
+const mv=new THREE.Vector3();
+const clock=new THREE.Clock();
+
+function updateMovement(dt){
+  mv.set(0,0,0);
+  // Klavye
+  if(platform==='desktop'){
+    if(KEYS.KeyW||KEYS.ArrowUp)   mv.z-=1;
+    if(KEYS.KeyS||KEYS.ArrowDown) mv.z+=1;
+    if(KEYS.KeyD||KEYS.ArrowRight)mv.x+=1;
+    if(KEYS.KeyA||KEYS.ArrowLeft) mv.x-=1;
+  }
+  // Joystick (mobil + VR)
+  if((platform==='mobile'||platform==='vr')&&joyState.active){
+    const dx=joyState.dx/JOY_R, dy=joyState.dy/JOY_R;
+    mv.z+=dy; mv.x+=dx;
+  }
+  if(mv.length()===0)return;
+  mv.normalize().applyAxisAngle(Y_AXIS,P.yaw);
+  const step=PLAYER_SPEED*dt;
+  const hDir=new THREE.Vector3(mv.x,0,mv.z);
+  let blocked=false;
+  for(const frac of[.2,.55,.9]){
+    raycaster.set(new THREE.Vector3(P.x,lastGround+PLAYER_EYE*frac,P.z),hDir);
+    const hits=raycaster.intersectObjects(mapObjects,true);
+    if(hits.length>0&&hits[0].distance<step+WALL_DIST){
+      const face=hits[0].face;
+      if(face){const n=face.normal.clone().transformDirection(hits[0].object.matrixWorld);if(Math.abs(n.y)<WALL_NRM){blocked=true;break;}}
+    }
+  }
+  if(!blocked&&curKey==='liman'){
+    const gNew=groundAt(P.x+mv.x*step,P.z+mv.z*step);
+    const drop=lastGround-(gNew!==null?gNew:-999);
+    if(isWater(lastHitColor)||isShallows(lastHitColor)||(gNew!==null&&gNew<30)||drop>5)blocked=true;
+    if(!blocked){
+      const nx=P.x+mv.x*step,nz=P.z+mv.z*step;
+      raycaster.set(new THREE.Vector3(nx,2000,nz),DOWN);
+      const h2=raycaster.intersectObjects(mapObjects,true);
+      if(h2.length){const nmx=new THREE.Matrix3();for(const h of h2){if(gNew!==null&&h.point.y>gNew+.5)continue;nmx.getNormalMatrix(h.object.matrixWorld);if(h.face.normal.clone().applyMatrix3(nmx).normalize().y<.85){blocked=true;}break;}}
+    }
+  }
+  if(!blocked){P.x+=mv.x*step;P.z+=mv.z*step;}
+  const g=groundAt(P.x,P.z);
+  if(g!==null)lastGround=g;
+  P.y=lastGround+PLAYER_EYE;
+}
+
+// ══════════════════════════════════════════════════
+//  PORTAL
+// ══════════════════════════════════════════════════
+let transitioning=false;
+function checkPortals(){
+  if(transitioning)return;
+  for(const pt of PORTALS){
+    if(pt.scene!==curKey)continue;
+    const dx=P.x-pt.x,dz=P.z-pt.z;
+    if(Math.sqrt(dx*dx+dz*dz)<pt.radius){doPortal(pt);return;}
+  }
+  if(isPortalColor(lastHitColor)){
+    doPortal(curKey==='main'
+      ?{toScene:'liman',toX:-29.2,toZ:-12.4,toYaw:-0.72,label:'Liman — Kilikya'}
+      :{toScene:'main',toX:32.2,toZ:-6.7,toYaw:Math.PI,label:'Ana Harita — Kilikya'});
+  }
+}
+function doPortal(pt){
+  transitioning=true;
+  const ov=document.getElementById('portal-ov');
+  ov.style.display='flex';
+  setTimeout(()=>{
+    SCENE_DEFS[curKey].lastGround=lastGround;
+    SCENE_DEFS[curKey].initialized=initialized;
+    curKey=pt.toScene; mapObjects=SCENE_DEFS[curKey].objects;
+    initialized=false; lastGround=SCENE_DEFS[curKey].lastGround;
+    P.x=pt.toX;P.z=pt.toZ;P.yaw=pt.toYaw;P.pitch=0;
+    const g=groundAt(P.x,P.z);
+    if(g!==null){lastGround=g;P.y=g+PLAYER_EYE;initialized=true;SCENE_DEFS[curKey].lastGround=g;SCENE_DEFS[curKey].initialized=true;}
+    document.getElementById('scene-label').textContent=pt.label;
+    ov.style.display='none'; transitioning=false;
+  },1200);
+}
+
+// ══════════════════════════════════════════════════
+//  NPC ETİKETİ
+// ══════════════════════════════════════════════════
+const npcLabelEl=document.getElementById('npc-label');
+const _v3=new THREE.Vector3();
+function updateNPCLabel(){
+  let closest=null,cd=Infinity;
+  for(const e of npcWorldPositions){
+    if(e.scene!==curKey)continue;
+    const d=Math.hypot(P.x-e.x,P.z-e.z);
+    if(d<cd){cd=d;closest=e;}
+  }
+  if(!closest||cd>120){npcLabelEl.style.display='none';return;}
+  _v3.set(closest.x,closest.worldY+7,closest.z);
+  _v3.project(camera);
+  if(_v3.z>1||Math.abs(_v3.x)>1.1||Math.abs(_v3.y)>1.1){npcLabelEl.style.display='none';return;}
+  npcLabelEl.style.display='block';
+  npcLabelEl.style.left=(_v3.x*.5+.5)*innerWidth+'px';
+  npcLabelEl.style.top=(-.5*_v3.y+.5)*innerHeight+'px';
+  npcLabelEl.textContent=closest.name;
+}
+
+// ══════════════════════════════════════════════════
+//  BAŞLATMA
+// ══════════════════════════════════════════════════
+function addMap(key,group){
+  if(!group)return;
+  group.rotation.x=-Math.PI/2;
+  SCENE_DEFS[key].three.add(group);
+  SCENE_DEFS[key].three.updateMatrixWorld(true);
+  group.traverse(o=>{if(o.isMesh)SCENE_DEFS[key].objects.push(o);});
+}
+function addNPC(sceneKey,group,x,y,z,yawDeg,npcData){
+  if(!group)return;
+  const box=new THREE.Box3().setFromObject(group),sz=new THREE.Vector3();
+  box.getSize(sz);
+  const tallest=Math.max(sz.x,sz.y,sz.z);
+  const sc=tallest>0?(PLAYER_EYE*2.5)/tallest:1;
+  group.scale.setScalar(sc);
+  group.traverse(o=>{if(o.isMesh)o.castShadow=true;});
+  group.rotation.set(0,-((yawDeg-180)*Math.PI/180),0);
+  const box2=new THREE.Box3().setFromObject(group);
+  const worldY=y-box2.min.y;
+  group.position.set(x,worldY,z);
+  SCENE_DEFS[sceneKey].three.add(group);
+  npcWorldPositions.push({scene:sceneKey,x,z,worldY,name:npcData.name});
+}
+
+const NPC_TALK_RADIUS=10;
+let checkNPCProximity_global=()=>{};
+
+function showVRBtn(){
+  if(hasXR) document.getElementById('vr-btn').style.display='block';
+}
+function hideVRBtn(){
+  document.getElementById('vr-btn').style.display='none';
+}
+
+function startGame(assets){
+  addMap('main',assets.mapMain);
+  addMap('liman',assets.mapLiman);
+  for(const npc of NPCS){
+    const src=assets[npc.key];if(!src)continue;
+    addNPC(npc.scene,src.clone(true),npc.x,npc.y,npc.z,npc.yawDeg,npc);
+  }
+  const g=groundAt(P.x,P.z);
+  if(g!==null){lastGround=g;P.y=g+PLAYER_EYE;initialized=true;}
+
+  document.getElementById('loading-screen').style.display='none';
+  document.getElementById('scene-label').style.display='block';
+
+  // Platform'a göre kontroller
+  if(platform==='mobile'){
+    document.getElementById('mobile-controls').style.display='block';
+    document.getElementById('btn-respawn-mobile').style.display='block';
+    document.getElementById('npc-prompt').textContent=getNPCPromptText();
+  } else {
+    // Desktop
+    document.getElementById('c').requestPointerLock();
+    showVRBtn();
+  }
+
+  // NPC yakınlık kontrolü (global referans, VR loop da kullanır)
+  checkNPCProximity_global=function(){
+    if(transitioning)return;
+    let found=null;
+    for(const npc of NPCS){
+      if(npc.scene!==curKey)continue;
+      if(Math.hypot(P.x-npc.x,P.z-npc.z)<NPC_TALK_RADIUS){found=npc;break;}
+    }
+    if(found!==nearbyNPC){
+      nearbyNPC=found;
+      const prompt=document.getElementById('npc-prompt');
+      if(!dialogOpen){
+        prompt.style.display=found?'block':'none';
+        prompt.textContent=getNPCPromptText();
+      }
+      // Mobil konuş butonu görünürlüğü
+      if(platform==='mobile'){
+        document.getElementById('btn-talk-mobile').style.display=found?'flex':'none';
+      }
+      if(!found&&dialogOpen)closeDialog();
+    }
+  };
+
+  // Ana render loop (desktop + mobile)
+  function loop(){
+    if(platform==='vr'){return;} // VR kendi loop'unu kullanır
+    requestAnimationFrame(loop);
+    const dt=Math.min(clock.getDelta(),.05);
+    if(!transitioning)updateMovement(dt);
+    checkPortals();
+    checkNPCProximity_global();
+    camera.position.set(P.x,P.y,P.z);
+    camera.rotation.order='YXZ';
+    camera.rotation.y=P.yaw;
+    camera.rotation.x=P.pitch;
+    renderer.render(SCENE_DEFS[curKey].three,camera);
+    updateNPCLabel();
+  }
+  loop();
+}
+</script>
+</body>
+</html>
